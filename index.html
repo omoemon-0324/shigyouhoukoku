@@ -156,11 +156,14 @@
     .btn:hover { background: var(--accent-hover); }
 
     .btn-ghost {
+      display: inline-block;
       border: 1px solid var(--line);
       border-radius: 0.5rem;
       padding: 0.65rem 1rem;
       background: var(--paper);
       color: var(--ink);
+      font: inherit;
+      cursor: pointer;
     }
 
     .btn-ghost:hover { background: #f0ebe3; }
@@ -186,17 +189,61 @@
       font-size: 0.8rem;
     }
 
+    .hint {
+      margin: 0.5rem 0 0;
+      color: var(--muted);
+      font-size: 0.8rem;
+    }
+
+    .status {
+      margin: 0.6rem 0 0;
+      padding: 0.6rem 0.75rem;
+      border-radius: 0.45rem;
+      background: #efeade;
+      color: var(--ink);
+      font-size: 0.85rem;
+    }
+
+    .status.is-error {
+      background: #f8ece8;
+      color: var(--danger);
+    }
+
+    .shot {
+      margin-top: 0.6rem;
+      display: flex;
+      align-items: flex-start;
+      gap: 0.5rem;
+    }
+
+    .shot img {
+      width: 5.5rem;
+      border: 1px solid var(--line);
+      border-radius: 0.4rem;
+      background: var(--paper);
+    }
+
     .copied .btn { background: var(--ok); }
   </style>
 </head>
 <body>
   <main>
     <h1>始業報告</h1>
-    <p class="lede">Outlookの今日の予定を貼る → 直す → コピーしてTeamsへ</p>
+    <p class="lede">今日の予定を入れる → 直す → コピーしてTeamsへ</p>
 
     <section>
-      <h2>1. Outlookの予定を貼る</h2>
+      <h2>1. Outlookの予定を入れる</h2>
       <textarea id="source" placeholder="Outlookから今日の予定をコピーして、ここに貼り付けてください"></textarea>
+      <div class="actions">
+        <label class="btn-ghost" for="shot">スクショから読み取る</label>
+        <input type="file" id="shot" accept="image/*" hidden />
+      </div>
+      <p class="hint">カレンダーのスクリーンショットでも読み取れます。上の枠に画像を貼り付けてもかまいません。</p>
+      <p id="status" class="status" hidden></p>
+      <div id="shotBox" class="shot" hidden>
+        <img id="shotImg" alt="読み取ったスクリーンショット" />
+        <button type="button" class="btn-ghost" id="shotClear">画像を消す</button>
+      </div>
     </section>
 
     <section>
@@ -239,6 +286,8 @@
       /^(?:(?:conference|meeting|mtg)\s*room(?:\s+\S+)?|room\s+\S+|会議室\S*|オンライン(?:会議)?)$/i;
 
     const SUBJECT_LINE = /^(?:件名|subject)\s*[:：]\s*(.+)$/i;
+
+    const BULLET_PREFIX = /^(?:[\s]*[・･•◦●○▪▫‣·*+\-–—－]+[\s]*)+/;
 
     function normalizeLine(line) {
       return line.replace(/\u00a0/g, " ").replace(/\t+/g, " ").replace(/\s+/g, " ").trim();
@@ -284,17 +333,22 @@
       return false;
     }
 
+    function stripBullet(text) {
+      return String(text == null ? "" : text).replace(BULLET_PREFIX, "").trim();
+    }
+
     function titleFromLine(line) {
       const subject = line.match(SUBJECT_LINE);
-      if (subject) return subject[1].trim();
-      return line.replace(LEADING_TIME, "").trim();
+      if (subject) return stripBullet(subject[1]);
+      return stripBullet(line.replace(LEADING_TIME, ""));
     }
 
     function parseOutlook(text) {
       const lines = String(text || "")
         .replace(/\r\n/g, "\n")
         .split("\n")
-        .map(normalizeLine);
+        .map(normalizeLine)
+        .map(stripBullet);
 
       const titles = [];
       const seen = new Set();
@@ -312,12 +366,81 @@
       return titles;
     }
 
-    function toMessage(items) {
-      return items
-        .map((item) => item.trim())
-        .filter(Boolean)
-        .map((item) => "・" + item)
+    const TESSERACT_SRC = "https://cdn.jsdelivr.net/npm/tesseract.js@5.1.1/dist/tesseract.min.js";
+    const MAX_OCR_PIXELS = 8000000;
+    // Misread block borders score near zero, while correct but blurry glyphs still reach the 40s.
+    const MIN_WORD_CONFIDENCE = 25;
+
+    let tesseractPromise = null;
+    let ocrBusy = false;
+    const JP = "\\u3040-\\u30ff\\u3400-\\u4dbf\\u4e00-\\u9fff\\uff00-\\uffef\\u3000-\\u303f";
+    const SPACE_AROUND_JP = new RegExp("([" + JP + "])[ \\t]+|[ \\t]+(?=[" + JP + "])", "g");
+    const WEEKDAY_ONLY = /^[月火水木金土日\s]+$/;
+    const CLOCK_LABEL_ONLY = /^[\d\s:：.\-–~〜～時分月年日午前後全]+$/;
+    const PLACE_WORD = /(?:会議室|オンライン|teams(?:\s*会議)?|zoom|参加|場所)/i;
+    const HAS_CLOCK = /\d{1,2}\s*[:：]\s*\d{2}|\d{1,2}\s*時/;
+
+    // OCR splits Japanese into per-glyph tokens, so spaces touching Japanese text are dropped.
+    function compactJapanese(line) {
+      return line.replace(SPACE_AROUND_JP, "$1").trim();
+    }
+
+    function isOcrNoise(line) {
+      const compact = line.replace(/\s+/g, "");
+      if (compact.length <= 2) return true;
+      if (WEEKDAY_ONLY.test(line)) return true;
+      if (CLOCK_LABEL_ONLY.test(compact)) return true;
+      if (HAS_CLOCK.test(compact) && PLACE_WORD.test(compact)) {
+        const rest = compact
+          .replace(/\d{1,2}\s*[:：]\s*\d{2}/g, "")
+          .replace(new RegExp(PLACE_WORD.source, "gi"), "")
+          .replace(/[\d\s:：.\-–~〜～時分]/g, "");
+        if (rest.length <= 2) return true;
+      }
+      return false;
+    }
+
+    const INLINE_CLOCK =
+      /\d{1,2}\s*[:：]\s*\d{2}(?:\s*(?:am|pm))?(?:\s*[-–~〜～]\s*\d{1,2}\s*[:：]\s*\d{2}(?:\s*(?:am|pm))?)?/gi;
+
+    function cleanOcrText(text) {
+      return String(text || "")
+        .split("\n")
+        .map(compactJapanese)
+        .filter((line) => line && !isOcrNoise(line))
+        .map((line) => line.replace(INLINE_CLOCK, " ").replace(/\s+/g, " ").trim())
+        .filter((line) => line.length > 1)
         .join("\n");
+    }
+
+    // Tesseract scores each word, and misread block borders come back near zero.
+    function linesFromOcr(data) {
+      const lines = [];
+      const visit = (node) => {
+        if (!node) return;
+        if (Array.isArray(node)) return node.forEach(visit);
+        if (Array.isArray(node.words) && node.words.length) {
+          const kept = node.words
+            .filter((word) => (word.confidence == null ? 100 : word.confidence) >= MIN_WORD_CONFIDENCE)
+            .map((word) => word.text);
+          if (kept.length) lines.push(kept.join(" "));
+          return;
+        }
+        ["blocks", "paragraphs", "lines"].forEach((key) => visit(node[key]));
+      };
+      visit(data && data.blocks);
+      return lines.length ? lines.join("\n") : String((data && data.text) || "");
+    }
+
+    function toMessage(items) {
+      const lines = items.map(stripBullet).filter(Boolean);
+      if (!lines.length) return "";
+      return [
+        "お疲れ様です。",
+        "本日の予定です。",
+        ...lines.map((line) => "・" + line),
+        "よろしくお願いします。",
+      ].join("\n");
     }
 
     const sourceEl = document.getElementById("source");
@@ -326,6 +449,11 @@
     const previewEl = document.getElementById("preview");
     const addEl = document.getElementById("add");
     const copyEl = document.getElementById("copy");
+    const shotEl = document.getElementById("shot");
+    const shotBox = document.getElementById("shotBox");
+    const shotImg = document.getElementById("shotImg");
+    const shotClearEl = document.getElementById("shotClear");
+    const statusEl = document.getElementById("status");
 
     let items = [];
 
@@ -401,7 +529,24 @@
       render();
     }
 
-    sourceEl.addEventListener("paste", () => {
+    function imageFromClipboard(event) {
+      const list = event.clipboardData ? event.clipboardData.items : null;
+      if (!list) return null;
+      for (const entry of list) {
+        if (entry.kind === "file" && String(entry.type).startsWith("image/")) {
+          return entry.getAsFile();
+        }
+      }
+      return null;
+    }
+
+    sourceEl.addEventListener("paste", (event) => {
+      const image = imageFromClipboard(event);
+      if (image) {
+        event.preventDefault();
+        readScreenshot(image);
+        return;
+      }
       setTimeout(applySource, 0);
     });
 
@@ -409,9 +554,148 @@
       applySource();
     });
 
+    shotEl.addEventListener("change", () => {
+      const file = shotEl.files && shotEl.files[0];
+      shotEl.value = "";
+      if (file) readScreenshot(file);
+    });
+
+    shotClearEl.addEventListener("click", () => {
+      shotBox.hidden = true;
+      shotImg.removeAttribute("src");
+      setStatus("");
+    });
+
     addEl.addEventListener("click", () => {
       addRow();
     });
+
+    function setStatus(text, isError) {
+      statusEl.hidden = !text;
+      statusEl.textContent = text || "";
+      statusEl.classList.toggle("is-error", Boolean(isError));
+    }
+
+    function loadTesseract() {
+      if (window.Tesseract) return Promise.resolve(window.Tesseract);
+      if (!tesseractPromise) {
+        tesseractPromise = new Promise((resolve, reject) => {
+          const tag = document.createElement("script");
+          tag.src = TESSERACT_SRC;
+          tag.onload = () =>
+            window.Tesseract ? resolve(window.Tesseract) : reject(new Error("tesseract missing"));
+          tag.onerror = () => reject(new Error("tesseract unreachable"));
+          document.head.append(tag);
+        }).catch((err) => {
+          tesseractPromise = null;
+          throw err;
+        });
+      }
+      return tesseractPromise;
+    }
+
+    function readFileAsDataUrl(file) {
+      return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve(reader.result);
+        reader.onerror = () => reject(new Error("file unreadable"));
+        reader.readAsDataURL(file);
+      });
+    }
+
+    function loadImage(src) {
+      return new Promise((resolve, reject) => {
+        const img = new Image();
+        img.onload = () => resolve(img);
+        img.onerror = () => reject(new Error("image unreadable"));
+        img.src = src;
+      });
+    }
+
+    // Calendar blocks are light text on colour, which OCR only reads once flattened to grey.
+    function prepareForOcr(img) {
+      const area = Math.max(1, img.width * img.height);
+      let scale = img.width < 1200 ? 2 : 1;
+      if (area * scale * scale > MAX_OCR_PIXELS) scale = Math.sqrt(MAX_OCR_PIXELS / area);
+      const canvas = document.createElement("canvas");
+      canvas.width = Math.max(1, Math.round(img.width * scale));
+      canvas.height = Math.max(1, Math.round(img.height * scale));
+      const ctx = canvas.getContext("2d");
+      ctx.imageSmoothingEnabled = true;
+      ctx.imageSmoothingQuality = "high";
+      ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+      const frame = ctx.getImageData(0, 0, canvas.width, canvas.height);
+      const px = frame.data;
+      for (let i = 0; i < px.length; i += 4) {
+        let v = 0.299 * px[i] + 0.587 * px[i + 1] + 0.114 * px[i + 2];
+        v = (v - 128) * 1.4 + 128;
+        px[i] = px[i + 1] = px[i + 2] = v < 0 ? 0 : v > 255 ? 255 : v;
+      }
+      ctx.putImageData(frame, 0, 0);
+      return canvas;
+    }
+
+    function mergeItems(found) {
+      const seen = new Set(
+        items.map((item) => stripBullet(item).toLowerCase()).filter(Boolean)
+      );
+      const fresh = found.filter((title) => {
+        const key = title.toLowerCase();
+        if (seen.has(key)) return false;
+        seen.add(key);
+        return true;
+      });
+      items = items.concat(fresh);
+      return fresh.length;
+    }
+
+    async function readScreenshot(file) {
+      if (ocrBusy) return;
+      ocrBusy = true;
+      let worker = null;
+      try {
+        setStatus("画像を読み込んでいます…");
+        const dataUrl = await readFileAsDataUrl(file);
+        shotImg.src = dataUrl;
+        shotBox.hidden = false;
+
+        const canvas = prepareForOcr(await loadImage(dataUrl));
+        setStatus("読み取りの準備をしています。初回は辞書の読み込みに時間がかかります…");
+
+        const tesseract = await loadTesseract();
+        worker = await tesseract.createWorker("jpn", 1, {
+          logger: (message) => {
+            const status = String(message.status || "");
+            if (status === "recognizing text") {
+              setStatus("読み取り中… " + Math.round((message.progress || 0) * 100) + "%");
+            } else if (status.includes("traineddata")) {
+              setStatus("日本語の辞書を読み込んでいます…");
+            }
+          },
+        });
+        await worker.setParameters({
+          tessedit_pageseg_mode: tesseract.PSM ? tesseract.PSM.AUTO : "3",
+        });
+
+        const result = await worker.recognize(canvas, {}, { blocks: true, text: true });
+        const found = parseOutlook(cleanOcrText(linesFromOcr(result.data)));
+        const added = mergeItems(found);
+        render();
+
+        if (!added) {
+          setStatus("読み取れる予定が見つかりませんでした。下の「作業や企画を足す」から手で入れてください。", true);
+        } else {
+          setStatus("読み取りました（" + added + "件）。読み間違いがあるので、下で必ず確認してください。");
+        }
+      } catch (err) {
+        setStatus("読み取りに失敗しました。通信できているか確認してください。手で入れることもできます。", true);
+      } finally {
+        if (worker) {
+          try { await worker.terminate(); } catch (_) {}
+        }
+        ocrBusy = false;
+      }
+    }
 
     async function copyText(text) {
       if (navigator.clipboard && window.isSecureContext) {
