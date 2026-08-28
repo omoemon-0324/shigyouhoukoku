@@ -1,0 +1,453 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>始業報告</title>
+  <style>
+    :root {
+      --bg: #f4f1ea;
+      --paper: #fffcf7;
+      --ink: #1c1916;
+      --muted: #6b645c;
+      --line: #e4ddd3;
+      --accent: #1f4d3a;
+      --accent-hover: #16382b;
+      --danger: #8a3b2f;
+      --ok: #1f4d3a;
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      color: var(--ink);
+      background: var(--bg);
+      font-family: "Hiragino Sans", "Hiragino Kaku Gothic ProN", "Noto Sans JP", sans-serif;
+      line-height: 1.5;
+    }
+
+    main {
+      max-width: 40rem;
+      margin: 0 auto;
+      padding: 2.5rem 1.25rem 4rem;
+    }
+
+    h1 {
+      margin: 0 0 0.35rem;
+      font-size: 1.5rem;
+      font-weight: 700;
+      letter-spacing: 0.02em;
+    }
+
+    .lede {
+      margin: 0 0 2rem;
+      color: var(--muted);
+      font-size: 0.95rem;
+    }
+
+    section {
+      margin-bottom: 1.75rem;
+    }
+
+    h2 {
+      margin: 0 0 0.6rem;
+      font-size: 0.8rem;
+      font-weight: 700;
+      letter-spacing: 0.08em;
+      color: var(--muted);
+    }
+
+    textarea, input[type="text"] {
+      width: 100%;
+      border: 1px solid var(--line);
+      border-radius: 0.5rem;
+      background: var(--paper);
+      color: var(--ink);
+      font: inherit;
+    }
+
+    textarea {
+      min-height: 9rem;
+      padding: 0.85rem 0.95rem;
+      resize: vertical;
+    }
+
+    textarea:focus, input[type="text"]:focus, button:focus-visible {
+      outline: 2px solid var(--accent);
+      outline-offset: 2px;
+    }
+
+    textarea::placeholder, input::placeholder {
+      color: #a39b92;
+    }
+
+    .rows {
+      display: flex;
+      flex-direction: column;
+      gap: 0.5rem;
+    }
+
+    .row {
+      display: flex;
+      gap: 0.35rem;
+      align-items: center;
+    }
+
+    .bullet {
+      flex: none;
+      width: 0.85rem;
+      color: var(--muted);
+    }
+
+    .row textarea {
+      min-height: 0;
+      padding: 0.6rem 0.7rem;
+      resize: none;
+      overflow: hidden;
+      line-height: 1.45;
+    }
+
+    .icon-btn {
+      flex: none;
+      width: 2.75rem;
+      height: 2.75rem;
+      border: 1px solid var(--line);
+      border-radius: 0.45rem;
+      background: var(--paper);
+      color: var(--danger);
+      cursor: pointer;
+      font-size: 1.05rem;
+      line-height: 1;
+    }
+
+    .icon-btn:hover {
+      background: #f8ece8;
+    }
+
+    .empty {
+      margin: 0;
+      padding: 0.85rem 0.2rem;
+      color: var(--muted);
+      font-size: 0.9rem;
+    }
+
+    .actions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.5rem;
+      margin-top: 0.7rem;
+    }
+
+    button {
+      font: inherit;
+      cursor: pointer;
+    }
+
+    .btn {
+      border: 0;
+      border-radius: 0.5rem;
+      padding: 0.65rem 1rem;
+      background: var(--accent);
+      color: #fff;
+      font-weight: 600;
+    }
+
+    .btn:hover { background: var(--accent-hover); }
+
+    .btn-ghost {
+      border: 1px solid var(--line);
+      border-radius: 0.5rem;
+      padding: 0.65rem 1rem;
+      background: var(--paper);
+      color: var(--ink);
+    }
+
+    .btn-ghost:hover { background: #f0ebe3; }
+
+    .preview {
+      margin: 0;
+      padding: 0.95rem 1rem;
+      border-radius: 0.5rem;
+      background: var(--paper);
+      border: 1px solid var(--line);
+      white-space: pre-wrap;
+      min-height: 4.5rem;
+      font-size: 0.95rem;
+    }
+
+    .preview.is-empty {
+      color: var(--muted);
+    }
+
+    .note {
+      margin: 1.5rem 0 0;
+      color: var(--muted);
+      font-size: 0.8rem;
+    }
+
+    .copied .btn { background: var(--ok); }
+  </style>
+</head>
+<body>
+  <main>
+    <h1>始業報告</h1>
+    <p class="lede">Outlookの今日の予定を貼る → 直す → コピーしてTeamsへ</p>
+
+    <section>
+      <h2>1. Outlookの予定を貼る</h2>
+      <textarea id="source" placeholder="Outlookから今日の予定をコピーして、ここに貼り付けてください"></textarea>
+    </section>
+
+    <section>
+      <h2>2. 直す（消す・直す・足す）</h2>
+      <div id="rows" class="rows"></div>
+      <p id="empty" class="empty">まだありません。上に貼るか、下から行を足してください。</p>
+      <div class="actions">
+        <button type="button" class="btn-ghost" id="add">作業や企画を足す</button>
+      </div>
+    </section>
+
+    <section>
+      <h2>3. コピーする</h2>
+      <pre id="preview" class="preview is-empty">ここにTeamsへ貼る文章が出ます</pre>
+      <div class="actions">
+        <button type="button" class="btn" id="copy">コピー</button>
+      </div>
+    </section>
+
+    <p class="note">貼った予定はこの端末の中だけで処理します。どこにも送りません。</p>
+  </main>
+
+  <script>
+    const TIME_ONLY =
+      /^(?:終日(?:の予定)?|(?:\d{1,4}[\/.\-年]\d{1,2}[\/.\-月]\d{1,2}日?)|(?:\d{1,2}月\d{1,2}日)|(?:(?:月|火|水|木|金|土|日)曜日?)|(?:monday|tuesday|wednesday|thursday|friday|saturday|sunday|mon|tue|wed|thu|fri|sat|sun)|(?:january|february|march|april|may|june|july|august|september|october|november|december)(?:\s+\d{1,2}(?:,\s*\d{4})?)?|(?:午前|午後)?\s*\d{1,2}:\d{2}(?:\s*(?:am|pm))?(?:\s*[-–~〜～]\s*(?:午前|午後)?\s*\d{1,2}:\d{2}(?:\s*(?:am|pm))?)?|(?:all\s*day)|(?:\d{1,2}\/\d{1,2}(?:\/\d{2,4})?))(?:[\s,.]|の|$)/i;
+
+    const DATE_CHUNK =
+      /(?:\d{4}[\/.\-年]\d{1,2}[\/.\-月]\d{1,2}日?|\d{1,2}月\d{1,2}日|(?:月|火|水|木|金|土|日)曜日?|(?:monday|tuesday|wednesday|thursday|friday|saturday|sunday)(?:,)?(?:\s+[a-z]+)?(?:\s+\d{1,2})?(?:,\s*\d{4})?)/i;
+
+    const TIME_CHUNK =
+      /(?:終日|all\s*day|(?:午前|午後)?\s*\d{1,2}:\d{2}(?:\s*(?:am|pm))?)/i;
+
+    const LEADING_TIME =
+      /^(?:終日|(?:午前|午後)\s*\d{1,2}:\d{2}|\d{1,2}:\d{2}(?:\s*(?:am|pm))?(?:\s*[-–~〜～]\s*\d{1,2}:\d{2}(?:\s*(?:am|pm))?)?)\s+/i;
+
+    const META_PREFIX =
+      /^(?:場所|location|主催(?:者)?|organizer|出席者|required(?: attendees)?|optional(?: attendees)?|会議室|会議\s*id|meeting\s*id|パスコード|passcode|参加(?:する)?|join(?: microsoft teams meeting)?|表示(?:の状態)?|show as|カテゴリ|category|重要度|秘密度|本文|description|メモ|notes|オンライン|microsoft teams(?: 会議)?|teams 会議|zoom|電話|phone|添付|attachments|予定表|calendar|繰り返し|recurrence|リマインダー|reminder|開始(?:日|時刻|時間)?|終了(?:日|時刻|時間)?|所要時間|start(?: date| time)?|end(?: date| time)?|duration)(?:[:：\s]|$)/i;
+
+    const LOCATION_LIKE =
+      /^(?:(?:conference|meeting|mtg)\s*room(?:\s+\S+)?|room\s+\S+|会議室\S*|オンライン(?:会議)?)$/i;
+
+    const SUBJECT_LINE = /^(?:件名|subject)\s*[:：]\s*(.+)$/i;
+
+    function normalizeLine(line) {
+      return line.replace(/\u00a0/g, " ").replace(/\t+/g, " ").replace(/\s+/g, " ").trim();
+    }
+
+    function isSkippable(line) {
+      if (!line) return true;
+      if (/^https?:\/\//i.test(line)) return true;
+      if (/^tel:/i.test(line)) return true;
+      if (/^[\d\s+\-()（）]{8,}$/.test(line)) return true;
+      if (/@/.test(line) && /\./.test(line)) return true;
+      if (META_PREFIX.test(line)) return true;
+      if (LOCATION_LIKE.test(line)) return true;
+      if (isDateTimeLine(line)) return true;
+      return false;
+    }
+
+    function isDateTimeLine(line) {
+      const compact = line.replace(/\s+/g, " ").trim();
+      if (!compact) return true;
+      if (TIME_ONLY.test(compact) && compact.length <= 80) {
+        const withoutTime = compact
+          .replace(DATE_CHUNK, "")
+          .replace(TIME_CHUNK, "")
+          .replace(/[-–~〜～,./年月日]/g, "")
+          .replace(/\d/g, "")
+          .replace(/(?:am|pm)/gi, "")
+          .replace(/\s+/g, "");
+        if (withoutTime.length <= 2) return true;
+      }
+      const dateHits = compact.match(new RegExp(DATE_CHUNK.source, "gi")) || [];
+      const timeHits = compact.match(new RegExp(TIME_CHUNK.source, "gi")) || [];
+      if ((dateHits.length || timeHits.length) && compact.length <= 70) {
+        const leftover = compact
+          .replace(new RegExp(DATE_CHUNK.source, "gi"), "")
+          .replace(new RegExp(TIME_CHUNK.source, "gi"), "")
+          .replace(/[-–~〜～,.:\/年月日]/g, "")
+          .replace(/(?:am|pm)/gi, "")
+          .replace(/\d/g, "")
+          .replace(/\s+/g, "");
+        if (leftover.length <= 2) return true;
+      }
+      return false;
+    }
+
+    function titleFromLine(line) {
+      const subject = line.match(SUBJECT_LINE);
+      if (subject) return subject[1].trim();
+      return line.replace(LEADING_TIME, "").trim();
+    }
+
+    function parseOutlook(text) {
+      const lines = String(text || "")
+        .replace(/\r\n/g, "\n")
+        .split("\n")
+        .map(normalizeLine);
+
+      const titles = [];
+      const seen = new Set();
+
+      for (const line of lines) {
+        if (isSkippable(line)) continue;
+        const title = titleFromLine(line);
+        if (!title || isSkippable(title) || isDateTimeLine(title)) continue;
+        const key = title.toLowerCase();
+        if (seen.has(key)) continue;
+        seen.add(key);
+        titles.push(title);
+      }
+
+      return titles;
+    }
+
+    function toMessage(items) {
+      return items
+        .map((item) => item.trim())
+        .filter(Boolean)
+        .map((item) => "・" + item)
+        .join("\n");
+    }
+
+    const sourceEl = document.getElementById("source");
+    const rowsEl = document.getElementById("rows");
+    const emptyEl = document.getElementById("empty");
+    const previewEl = document.getElementById("preview");
+    const addEl = document.getElementById("add");
+    const copyEl = document.getElementById("copy");
+
+    let items = [];
+
+    function render() {
+      rowsEl.innerHTML = "";
+      emptyEl.hidden = items.length > 0;
+
+      items.forEach((value, index) => {
+        const row = document.createElement("div");
+        row.className = "row";
+
+        const bullet = document.createElement("span");
+        bullet.className = "bullet";
+        bullet.textContent = "・";
+
+        const input = document.createElement("textarea");
+        input.rows = 1;
+        input.value = value;
+        input.setAttribute("aria-label", "報告項目");
+        input.addEventListener("input", () => {
+          items[index] = input.value.replace(/\n/g, " ");
+          if (input.value !== items[index]) input.value = items[index];
+          fitHeight(input);
+          renderPreview();
+        });
+        input.addEventListener("keydown", (event) => {
+          if (event.key !== "Enter") return;
+          event.preventDefault();
+          addRow(index + 1);
+        });
+
+        const remove = document.createElement("button");
+        remove.type = "button";
+        remove.className = "icon-btn";
+        remove.setAttribute("aria-label", "この行を消す");
+        remove.textContent = "×";
+        remove.addEventListener("click", () => {
+          items.splice(index, 1);
+          render();
+        });
+
+        row.append(bullet, input, remove);
+        rowsEl.append(row);
+        fitHeight(input);
+      });
+
+      renderPreview();
+    }
+
+    function fitHeight(el) {
+      el.style.height = "auto";
+      const border = el.offsetHeight - el.clientHeight;
+      el.style.height = el.scrollHeight + border + "px";
+    }
+
+    function addRow(at) {
+      const index = typeof at === "number" ? at : items.length;
+      items.splice(index, 0, "");
+      render();
+      const fields = rowsEl.querySelectorAll("textarea");
+      const target = fields[index] || fields[fields.length - 1];
+      if (target) target.focus();
+    }
+
+    function renderPreview() {
+      const message = toMessage(items);
+      previewEl.textContent = message || "ここにTeamsへ貼る文章が出ます";
+      previewEl.classList.toggle("is-empty", !message);
+    }
+
+    function applySource() {
+      items = parseOutlook(sourceEl.value);
+      render();
+    }
+
+    sourceEl.addEventListener("paste", () => {
+      setTimeout(applySource, 0);
+    });
+
+    sourceEl.addEventListener("input", () => {
+      applySource();
+    });
+
+    addEl.addEventListener("click", () => {
+      addRow();
+    });
+
+    async function copyText(text) {
+      if (navigator.clipboard && window.isSecureContext) {
+        try {
+          await Promise.race([
+            navigator.clipboard.writeText(text),
+            new Promise((_, reject) => setTimeout(() => reject(new Error("timeout")), 400)),
+          ]);
+          return;
+        } catch (_) {}
+      }
+      const helper = document.createElement("textarea");
+      helper.value = text;
+      helper.setAttribute("readonly", "");
+      helper.style.position = "fixed";
+      helper.style.left = "-9999px";
+      document.body.appendChild(helper);
+      helper.select();
+      document.execCommand("copy");
+      helper.remove();
+    }
+
+    copyEl.addEventListener("click", async () => {
+      const message = toMessage(items);
+      if (!message) return;
+      await copyText(message);
+      copyEl.textContent = "コピーした";
+      setTimeout(() => {
+        copyEl.textContent = "コピー";
+      }, 1600);
+    });
+
+    render();
+
+    window.parseOutlook = parseOutlook;
+    window.toMessage = toMessage;
+  </script>
+</body>
+</html>
