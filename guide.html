@@ -1,0 +1,415 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>始業報告ツール 図解</title>
+  <style>
+    :root {
+      --bg: #f4f1ea;
+      --paper: #fffcf7;
+      --ink: #1c1916;
+      --muted: #6b645c;
+      --line: #e4ddd3;
+      --accent: #1f4d3a;
+      --accent-soft: #e5ede8;
+      --warn: #8a3b2f;
+      --warn-soft: #f8ece8;
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      background: var(--bg);
+      color: var(--ink);
+      font-family: "Hiragino Sans", "Hiragino Kaku Gothic ProN", "Noto Sans JP", sans-serif;
+      line-height: 1.6;
+    }
+
+    main {
+      max-width: 56rem;
+      margin: 0 auto;
+      padding: 3rem 1.25rem 5rem;
+    }
+
+    header {
+      margin-bottom: 2.5rem;
+    }
+
+    h1 {
+      margin: 0 0 0.4rem;
+      font-size: 1.75rem;
+      letter-spacing: 0.02em;
+    }
+
+    header p {
+      margin: 0;
+      color: var(--muted);
+    }
+
+    header a {
+      color: var(--accent);
+    }
+
+    section {
+      margin-bottom: 3rem;
+    }
+
+    h2 {
+      margin: 0 0 1rem;
+      font-size: 0.8rem;
+      font-weight: 700;
+      letter-spacing: 0.1em;
+      color: var(--muted);
+    }
+
+    .card {
+      background: var(--paper);
+      border: 1px solid var(--line);
+      border-radius: 0.7rem;
+      padding: 1.1rem 1.2rem;
+    }
+
+    /* before / after */
+    .compare {
+      display: grid;
+      grid-template-columns: 1fr auto 1fr;
+      gap: 1rem;
+      align-items: stretch;
+    }
+
+    .compare h3 {
+      margin: 0 0 0.7rem;
+      font-size: 0.95rem;
+    }
+
+    .compare .before h3 { color: var(--warn); }
+    .compare .after h3 { color: var(--accent); }
+
+    .steps-list {
+      margin: 0;
+      padding: 0;
+      list-style: none;
+      counter-reset: step;
+    }
+
+    .steps-list li {
+      position: relative;
+      padding: 0.35rem 0 0.35rem 1.8rem;
+      font-size: 0.92rem;
+      counter-increment: step;
+    }
+
+    .steps-list li::before {
+      content: counter(step);
+      position: absolute;
+      left: 0;
+      top: 0.45rem;
+      width: 1.25rem;
+      height: 1.25rem;
+      border-radius: 50%;
+      font-size: 0.7rem;
+      line-height: 1.25rem;
+      text-align: center;
+      background: var(--warn-soft);
+      color: var(--warn);
+      font-weight: 700;
+    }
+
+    .after .steps-list li::before {
+      background: var(--accent-soft);
+      color: var(--accent);
+    }
+
+    .compare .arrow {
+      display: flex;
+      align-items: center;
+      color: var(--muted);
+      font-size: 1.5rem;
+    }
+
+    .tally {
+      margin-top: 0.9rem;
+      padding-top: 0.7rem;
+      border-top: 1px dashed var(--line);
+      font-size: 0.85rem;
+      color: var(--muted);
+    }
+
+    /* main flow */
+    .flow {
+      display: grid;
+      grid-template-columns: 1fr auto 1fr auto 1fr;
+      gap: 0.75rem;
+      align-items: stretch;
+    }
+
+    .flow .arrow {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: var(--muted);
+      font-size: 1.4rem;
+    }
+
+    .step .num {
+      display: inline-block;
+      margin-bottom: 0.5rem;
+      padding: 0.1rem 0.55rem;
+      border-radius: 999px;
+      background: var(--accent);
+      color: #fff;
+      font-size: 0.72rem;
+      font-weight: 700;
+      letter-spacing: 0.04em;
+    }
+
+    .step h3 {
+      margin: 0 0 0.45rem;
+      font-size: 1.02rem;
+    }
+
+    .step p {
+      margin: 0;
+      font-size: 0.87rem;
+      color: var(--muted);
+    }
+
+    /* three inputs */
+    .inputs {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 0.75rem;
+    }
+
+    .input-card .tag {
+      display: inline-block;
+      margin-bottom: 0.5rem;
+      padding: 0.12rem 0.5rem;
+      border-radius: 0.3rem;
+      background: var(--accent-soft);
+      color: var(--accent);
+      font-size: 0.72rem;
+      font-weight: 700;
+    }
+
+    .input-card h3 {
+      margin: 0 0 0.4rem;
+      font-size: 0.98rem;
+    }
+
+    .input-card p {
+      margin: 0;
+      font-size: 0.85rem;
+      color: var(--muted);
+    }
+
+    /* output sample */
+    .sample {
+      display: grid;
+      grid-template-columns: 1fr auto 1fr;
+      gap: 1rem;
+      align-items: center;
+    }
+
+    pre {
+      margin: 0;
+      font-family: inherit;
+      font-size: 0.88rem;
+      white-space: pre-wrap;
+    }
+
+    .sample .label {
+      margin: 0 0 0.5rem;
+      font-size: 0.78rem;
+      font-weight: 700;
+      color: var(--muted);
+    }
+
+    .raw { color: var(--muted); }
+
+    mark {
+      background: var(--accent-soft);
+      color: var(--accent);
+      padding: 0 0.15rem;
+      border-radius: 0.2rem;
+    }
+
+    /* facts */
+    .facts {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 0.75rem;
+    }
+
+    .fact h3 {
+      margin: 0 0 0.3rem;
+      font-size: 0.92rem;
+    }
+
+    .fact p {
+      margin: 0;
+      font-size: 0.84rem;
+      color: var(--muted);
+    }
+
+    footer {
+      margin-top: 3rem;
+      padding-top: 1.2rem;
+      border-top: 1px solid var(--line);
+      color: var(--muted);
+      font-size: 0.82rem;
+    }
+
+    @media (max-width: 720px) {
+      .compare,
+      .flow,
+      .inputs,
+      .sample,
+      .facts {
+        grid-template-columns: 1fr;
+      }
+
+      .compare .arrow,
+      .flow .arrow,
+      .sample .arrow {
+        transform: rotate(90deg);
+        justify-content: flex-start;
+        padding-left: 1rem;
+      }
+    }
+
+    @media print {
+      body { background: #fff; }
+      main { padding: 0; max-width: none; }
+      section { break-inside: avoid; margin-bottom: 1.5rem; }
+    }
+  </style>
+</head>
+<body>
+  <main>
+    <header>
+      <h1>始業報告ツール</h1>
+      <p>朝いちばんの「今日やること」報告を、毎日3ステップで終わらせる道具です。<br />
+        <a href="https://omoemon-0324.github.io/shigyouhoukoku/">https://omoemon-0324.github.io/shigyouhoukoku/</a></p>
+    </header>
+
+    <section>
+      <h2>これまでと、これから</h2>
+      <div class="compare">
+        <div class="card before">
+          <h3>これまで</h3>
+          <ol class="steps-list">
+            <li>Outlookを開いて今日の予定を確認する</li>
+            <li>メールとチャットを見て、やることを拾う</li>
+            <li>頭の中で優先順位をまとめる</li>
+            <li>Teamsに一から打ち込む</li>
+          </ol>
+          <p class="tally">毎朝ぜんぶ手作業。面倒で後回しになりがち。</p>
+        </div>
+        <div class="arrow" aria-hidden="true">→</div>
+        <div class="card after">
+          <h3>これから</h3>
+          <ol class="steps-list">
+            <li>予定を入れる（貼る・スクショ・手打ち）</li>
+            <li>いらない行を消し、足りない分を足す</li>
+            <li>コピーしてTeamsに貼る</li>
+          </ol>
+          <p class="tally">挨拶文は自動。打ち直しはゼロ。</p>
+        </div>
+      </div>
+    </section>
+
+    <section>
+      <h2>使うときの流れ</h2>
+      <div class="flow">
+        <div class="card step">
+          <span class="num">STEP 1</span>
+          <h3>入れる</h3>
+          <p>Outlookの予定を貼るか、カレンダーのスクショを読み取らせる。手で打ってもかまいません。</p>
+        </div>
+        <div class="arrow" aria-hidden="true">→</div>
+        <div class="card step">
+          <span class="num">STEP 2</span>
+          <h3>直す</h3>
+          <p>件名だけが箇条書きで並びます。報告しない予定は消し、予定にない作業や企画を足します。</p>
+        </div>
+        <div class="arrow" aria-hidden="true">→</div>
+        <div class="card step">
+          <span class="num">STEP 3</span>
+          <h3>コピー</h3>
+          <p>挨拶付きの文章ができています。ボタンを押してTeamsに貼るだけ。</p>
+        </div>
+      </div>
+    </section>
+
+    <section>
+      <h2>予定の入れ方は3つ</h2>
+      <div class="inputs">
+        <div class="card input-card">
+          <span class="tag">パソコン向き</span>
+          <h3>予定を貼る</h3>
+          <p>Outlookのカレンダーで今日の予定を選んでコピーし、枠に貼ります。日時や場所の行は自動で捨てられます。</p>
+        </div>
+        <div class="card input-card">
+          <span class="tag">スマホ向き</span>
+          <h3>スクショを読み取る</h3>
+          <p>スマホのOutlookは予定をコピーできないので、カレンダーの画面を撮って読み取らせます。文字は端末内で読み取ります。</p>
+        </div>
+        <div class="card input-card">
+          <span class="tag">どちらでも</span>
+          <h3>手で打つ</h3>
+          <p>メールやチャットを見て決めた作業・企画を足すとき用。改行キーを押すと次の行が増えます。</p>
+        </div>
+      </div>
+    </section>
+
+    <section>
+      <h2>出てくる文章</h2>
+      <div class="sample">
+        <div class="card">
+          <p class="label">入れたもの（Outlookの予定）</p>
+          <pre class="raw">ABC商事 新商品ローンチ定例
+10:00 - 11:00 会議室A
+社内定例 13:00-13:30
+デザイン確認
+14:00 - 15:00 Teams 会議</pre>
+        </div>
+        <div class="arrow" aria-hidden="true">→</div>
+        <div class="card">
+          <p class="label">出てくる文章（Teamsに貼る）</p>
+          <pre><mark>お疲れ様です。
+本日の予定です。</mark>
+・ABC商事 新商品ローンチ定例
+・社内定例
+・デザイン確認
+<mark>よろしくお願いします。</mark></pre>
+        </div>
+      </div>
+    </section>
+
+    <section>
+      <h2>知っておくこと</h2>
+      <div class="facts">
+        <div class="card fact">
+          <h3>入力は端末の中だけ</h3>
+          <p>予定もスクショも、開いている端末の中だけで処理します。どこにも送信しません。</p>
+        </div>
+        <div class="card fact">
+          <h3>準備はいらない</h3>
+          <p>インストールもログインも不要。会社のPCでも自分のスマホでも、同じURLを開くだけです。</p>
+        </div>
+        <div class="card fact">
+          <h3>読み取りは完璧ではない</h3>
+          <p>スクショの文字は読み間違えることがあります。貼る前に必ず目で確認してください。</p>
+        </div>
+      </div>
+    </section>
+
+    <footer>
+      詳しい手順は README（同じフォルダ内）に書いてあります。
+    </footer>
+  </main>
+</body>
+</html>
